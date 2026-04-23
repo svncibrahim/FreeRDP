@@ -2,7 +2,10 @@
 
 package com.freerdp.freerdpcore.data;
 
+import android.util.Log;
+import android.content.ContentValues;
 import android.content.Context;
+import android.database.Cursor;
 
 import androidx.annotation.NonNull;
 import androidx.room.Database;
@@ -11,11 +14,15 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
+import com.freerdp.freerdpcore.security.KeystoreHelper;
+
 @Database(entities = { BookmarkEntity.class }, version = AppDatabase.DB_VERSION,
           exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase
 {
-	static final int DB_VERSION = 11;
+	private static final String TAG = "AppDatabase";
+
+	static final int DB_VERSION = 12;
 	private static final String DB_NAME = "bookmarks.db";
 
 	private static volatile AppDatabase instance;
@@ -33,7 +40,7 @@ public abstract class AppDatabase extends RoomDatabase
 					instance =
 					    Room.databaseBuilder(context.getApplicationContext(), AppDatabase.class,
 					                         DB_NAME)
-					        .addMigrations(MIGRATION_10_11)
+					        .addMigrations(MIGRATION_10_11, MIGRATION_11_12)
 					        // TODO: remove once database access is moved to background threads.
 					        .allowMainThreadQueries()
 					        .build();
@@ -45,7 +52,7 @@ public abstract class AppDatabase extends RoomDatabase
 
 	// v10: tbl_manual_bookmarks + tbl_screen_settings + tbl_performance_flags (SQLiteOpenHelper)
 	// v11: single flat `bookmarks` table (Room)
-	private static final Migration MIGRATION_10_11 = new Migration(10, DB_VERSION) {
+	private static final Migration MIGRATION_10_11 = new Migration(10, 11) {
 		@Override public void migrate(@NonNull SupportSQLiteDatabase db)
 		{
 			db.execSQL("CREATE TABLE IF NOT EXISTS `bookmarks` ("
@@ -154,6 +161,50 @@ public abstract class AppDatabase extends RoomDatabase
 			db.execSQL("DROP TABLE IF EXISTS tbl_manual_bookmarks");
 			db.execSQL("DROP TABLE IF EXISTS tbl_screen_settings");
 			db.execSQL("DROP TABLE IF EXISTS tbl_performance_flags");
+		}
+	};
+
+	// v11 → v12: encrypt password and gateway_password columns with Android Keystore
+	private static final Migration MIGRATION_11_12 = new Migration(11, DB_VERSION) {
+		@Override public void migrate(@NonNull SupportSQLiteDatabase db)
+		{
+			KeystoreHelper ks = KeystoreHelper.getInstance();
+
+			Cursor cursor = db.query("SELECT id, password, gateway_password FROM bookmarks");
+			try
+			{
+				while (cursor.moveToNext())
+				{
+					long id = cursor.getLong(0);
+					String pwd = cursor.getString(1);
+					String gwPwd = cursor.getString(2);
+
+					ContentValues cv = new ContentValues();
+					cv.put("password", encryptField(ks, pwd));
+					cv.put("gateway_password", encryptField(ks, gwPwd));
+					db.update("bookmarks", 0 /* CONFLICT_NONE */, cv, "id = ?",
+					          new String[] { String.valueOf(id) });
+				}
+			}
+			finally
+			{
+				cursor.close();
+			}
+		}
+
+		private String encryptField(KeystoreHelper ks, String value)
+		{
+			if (value == null || value.isEmpty())
+				return value;
+			try
+			{
+				return ks.encrypt(value);
+			}
+			catch (KeystoreHelper.KeystoreException e)
+			{
+				Log.e(TAG, "Failed to encrypt credential, falling back to plaintext", e);
+				return value;
+			}
 		}
 	};
 }

@@ -2,11 +2,16 @@
 
 package com.freerdp.freerdpcore.data;
 
+import android.util.Log;
+
 import com.freerdp.freerdpcore.domain.BookmarkBase;
 import com.freerdp.freerdpcore.domain.ManualBookmark;
+import com.freerdp.freerdpcore.security.KeystoreHelper;
 
 public final class BookmarkConverter
 {
+	private static final String TAG = "BookmarkConverter";
+
 	private BookmarkConverter()
 	{
 	}
@@ -18,7 +23,7 @@ public final class BookmarkConverter
 		bm.setId(e.id);
 		bm.setLabel(e.label);
 		bm.setUsername(e.username);
-		bm.setPassword(e.password);
+		bm.setPassword(decrypt(e.password));
 		bm.setDomain(e.domain);
 		bm.setHostname(e.hostname);
 		bm.setPort(e.port);
@@ -72,7 +77,7 @@ public final class BookmarkConverter
 		gw.setHostname(e.gatewayHostname);
 		gw.setPort(e.gatewayPort);
 		gw.setUsername(e.gatewayUsername);
-		gw.setPassword(e.gatewayPassword);
+		gw.setPassword(decrypt(e.gatewayPassword));
 		gw.setDomain(e.gatewayDomain);
 
 		BookmarkBase.DebugSettings dbg = bm.getDebugSettings();
@@ -92,7 +97,7 @@ public final class BookmarkConverter
 		}
 		e.label = bm.getLabel();
 		e.username = bm.getUsername();
-		e.password = bm.getPassword();
+		e.password = encrypt(bm.getPassword());
 		e.domain = bm.getDomain();
 		e.hostname = bm.getHostname();
 		e.port = bm.getPort();
@@ -146,7 +151,7 @@ public final class BookmarkConverter
 		e.gatewayHostname = gw.getHostname();
 		e.gatewayPort = gw.getPort();
 		e.gatewayUsername = gw.getUsername();
-		e.gatewayPassword = gw.getPassword();
+		e.gatewayPassword = encrypt(gw.getPassword());
 		e.gatewayDomain = gw.getDomain();
 
 		BookmarkBase.DebugSettings dbg = bm.getDebugSettings();
@@ -155,5 +160,35 @@ public final class BookmarkConverter
 		e.asyncUpdate = dbg.getAsyncUpdate();
 
 		return e;
+	}
+
+	private static String encrypt(String value)
+	{
+		if (value == null || value.isEmpty())
+			return value;
+		try
+		{
+			return KeystoreHelper.getInstance().encrypt(value);
+		}
+		catch (KeystoreHelper.KeystoreException e)
+		{
+			Log.e(TAG, "Failed to encrypt password, storing plaintext", e);
+			return value;
+		}
+	}
+
+	private static String decrypt(String value)
+	{
+		if (value == null || value.isEmpty())
+			return value;
+		try
+		{
+			return KeystoreHelper.getInstance().decrypt(value);
+		}
+		catch (KeystoreHelper.KeystoreException e)
+		{
+			Log.e(TAG, "Failed to decrypt password, returning as-is", e);
+			return value;
+		}
 	}
 }
