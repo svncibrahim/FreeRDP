@@ -12,9 +12,11 @@ package com.freerdp.freerdpcore.presentation;
 
 import androidx.appcompat.app.AlertDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -41,9 +43,25 @@ public class HomeActivity extends AppCompatActivity
 	private MenuItem searchMenuItem;
 	private SearchView searchView;
 
+	private void initializeDefaultPreferences()
+	{
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+		if (!prefs.getBoolean("first_time_startup_done", false))
+		{
+			PreferenceManager.setDefaultValues(this, R.xml.settings_app_client, true);
+			PreferenceManager.setDefaultValues(this, R.xml.settings_app_power, true);
+			PreferenceManager.setDefaultValues(this, R.xml.settings_app_security, true);
+			PreferenceManager.setDefaultValues(this, R.xml.settings_app_ui, true);
+			prefs.edit().putBoolean("first_time_startup_done", true).apply();
+		}
+	}
+
 	@Override public void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
+
+		initializeDefaultPreferences();
+
 		binding = HomeBinding.inflate(getLayoutInflater());
 		setContentView(binding.getRoot());
 
