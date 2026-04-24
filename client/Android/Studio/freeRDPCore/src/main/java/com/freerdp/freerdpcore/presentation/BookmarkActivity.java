@@ -12,6 +12,7 @@ package com.freerdp.freerdpcore.presentation;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -20,6 +21,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
@@ -241,6 +243,11 @@ public class BookmarkActivity
 			Preference passwordPref = findPreference("bookmark.password");
 			if (passwordPref != null)
 			{
+				((EditTextPreference)passwordPref)
+				    .setOnBindEditTextListener(
+				        et
+				        -> et.setInputType(InputType.TYPE_CLASS_TEXT |
+				                           InputType.TYPE_TEXT_VARIATION_PASSWORD));
 				passwordPref.setSummaryProvider(preference -> {
 					SharedPreferences sp = getPreferenceManager().getSharedPreferences();
 					String pwd = sp.getString("bookmark.password", "");
@@ -511,6 +518,21 @@ public class BookmarkActivity
 			getPreferenceManager().setSharedPreferencesName(PREFS_NAME);
 			getPreferenceManager().setSharedPreferencesMode(MODE_PRIVATE);
 			setPreferencesFromResource(R.xml.gateway_settings, rootKey);
+
+			EditTextPreference gwPassPref = findPreference("bookmark.gateway_password");
+			if (gwPassPref != null)
+			{
+				gwPassPref.setOnBindEditTextListener(
+				    et
+				    -> et.setInputType(InputType.TYPE_CLASS_TEXT |
+				                       InputType.TYPE_TEXT_VARIATION_PASSWORD));
+				gwPassPref.setSummaryProvider(preference -> {
+					SharedPreferences sp = getPreferenceManager().getSharedPreferences();
+					String pwd = sp.getString("bookmark.gateway_password", "");
+					return pwd.isEmpty() ? getString(R.string.settings_password_empty)
+					                     : getString(R.string.settings_password_present);
+				});
+			}
 		}
 	}
 
